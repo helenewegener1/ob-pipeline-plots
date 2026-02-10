@@ -46,36 +46,76 @@ output_file <- opt$output
 df_f1_raw <- read_tsv(path_f1, show_col_types = FALSE)
 metadata_json <- fromJSON(path_meta_json)
 
-marker_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 37,
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 24,
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 24,
-  'dataset_name-FR-FCM-Z3YR_seed-42'                = 38,
-  'dataset_name-Samusik_seed-42'                    = 39,
-  'dataset_name-Transformed_seed-42'                = 33,
-  'dataset_name-flowcyt_seed-42' = 12,
-  'dataset_name-Levine_seed-42' = 32
+name_map <- c(
+  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'CV',
+  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'HT',
+  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'COVID',
+  'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
+  'dataset_name-Samusik_seed-42'                    = 'MBM',
+  'dataset_name-Transformed_seed-42'                = 'TF',
+  'dataset_name-flowcyt_seed-42'                    = 'HBM',
+  'dataset_name-Levine_seed-42'                     = 'LV',
+  "dataset_name-FR-FCM-ZZRQ_seed-42"                = "DCI"
+)
+
+model_map <- c(
+  'cyanno'      = "CyAnno",
+  'cygate'      = "CyGATE",
+  'dgcytof'     = "DGCytof",
+  'gatemeclass' = "GateMeClass",
+  'lda'         = "CyTOF LC",
+  'random'      = "Random"
+)
+
+# Robust Marker Map (Convert to Dataframe for safer joining)
+marker_map_df <- data.frame(
+  dataset_id = c(
+    'dataset_name-FR-FCM-Z238_infection_final_seed-42',
+    'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42',
+    'dataset_name-FR-FCM-Z2KP_virus_final_seed-42',
+    'dataset_name-FR-FCM-Z3YR_seed-42',
+    'dataset_name-Samusik_seed-42',
+    'dataset_name-Transformed_seed-42',
+    'dataset_name-flowcyt_seed-42',
+    'dataset_name-Levine_seed-42',
+    "dataset_name-FR-FCM-ZZRQ_seed-42"
+  ),
+  n_markers = c(37, 24, 24, 38, 39, 33, 12, 32, 9),
+  stringsAsFactors = FALSE
+)
+
+# --- COLORS (Set1 Palette) ---
+tool_colors <- c(
+  "CyAnno"      = "#E41A1C",  # Red
+  "CyGATE"      = "#377EB8",  # Blue
+  "DGCytof"     = "#4DAF4A",  # Green
+  "GateMeClass" = "#984EA3",  # Purple
+  "CyTOF LC"    = "#FF7F00",  # Orange
+  "Random"      = "#525252"   # Dark Grey
 )
 
 # ------------------------------------------------------------------------------
 # 2. PROCESSING
 # ------------------------------------------------------------------------------
+# A. Summarize F1 Weighted Median per (Dataset x Model)
 df_f1_avg <- df_f1_raw %>%
+  mutate(model = recode(model, !!!model_map)) %>% 
   group_by(dataset, model) %>%
   summarise(mean_f1_weighted = mean(f1_weighted_median, na.rm = TRUE), .groups = "drop")
 
+# B. Metadata Extraction Function (Robust)
 extract_metadata_stats <- function(meta_list) {
   ds_ids <- names(meta_list)
-  ds_ids_filtered <- ds_ids[!str_detect(ds_ids, regex("Levine", ignore_case = TRUE))]
   
-  results <- lapply(ds_ids_filtered, function(id) {
+  results <- lapply(ds_ids, function(id) {
     entry <- meta_list[[id]]
-    cells <- as.numeric(entry$cells_per_sample)
+    
+    # Calculate mean cells per sample
+    cells <- as.numeric(unlist(entry$cells_per_sample))
     avg_cells <- if(all(is.na(cells))) NA else mean(cells, na.rm = TRUE)
     
     data.frame(
       dataset_id    = id,
-      n_markers     = if(id %in% names(marker_map)) as.numeric(marker_map[id]) else NA,
       n_samples     = as.numeric(entry$sample_count),
       n_populations = as.numeric(entry$population_count),
       mean_cells    = avg_cells,
@@ -87,48 +127,83 @@ extract_metadata_stats <- function(meta_list) {
 
 df_metadata <- extract_metadata_stats(metadata_json)
 
+# C. Merge and Final Cleanup
 df_plot <- df_f1_avg %>%
-  filter(!str_detect(dataset, regex("Levine", ignore_case = TRUE))) %>%
+  # 1. Join Metadata (Cells, Samples, Pops)
   left_join(df_metadata, by = c("dataset" = "dataset_id")) %>%
-  filter(!str_detect(model, regex("random", ignore_case = TRUE)))
+  # 2. Join Markers (From our hardcoded dataframe - fixes the NA issue)
+  left_join(marker_map_df, by = c("dataset" = "dataset_id")) %>%
+  # 3. Filtering
+  filter(!str_detect(dataset, regex("sub-sampling", ignore_case = TRUE))) %>%
+  filter(!str_detect(dataset, regex("Levine", ignore_case = TRUE))) %>% # Filter Levine as per your request
+  filter(!str_detect(model, regex("random", ignore_case = TRUE))) %>%   # Exclude Random from regression
+  # 4. Clean Names
+  mutate(dataset_clean = recode(dataset, !!!name_map)) %>%
+  filter(!is.na(dataset_clean))
 
-# ------------------------------------------------------------------------------
-# 3. PLOTTING LOGIC
-# ------------------------------------------------------------------------------
-theme_gb_scatter <- theme_minimal(base_size = 8, base_family = "sans") +
+# 3. THEME & PLOTTING FUNCTION
+
+# Genome Biology Clean Theme
+theme_gb_scatter <- theme_bw(base_size = 9) +
   theme(
     text = element_text(color = "black"),
+    # Clean Borders
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    
+    # Axis Text
     axis.text = element_text(size = 8, color = "black"),
     axis.title = element_text(size = 9, face = "bold", color = "black"),
-    panel.background = element_rect(fill = "grey98", color = NA),
-    panel.grid.major = element_line(color = "white", linewidth = 0.5),
-    panel.grid.minor = element_blank(),
+    
+    # Legend (Hidden in individual plots, collected later)
     legend.position = "none"
   )
 
 create_plot <- function(data, x_var, x_label, is_log = FALSE) {
-  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_f1_weighted, color = model)) +
-    geom_smooth(method = "lm", se = FALSE, linewidth = 0.5, alpha = 0.6) +
-    geom_point(aes(fill = model), shape = 21, color = "black", stroke = 0.2, size = 2, alpha = 0.8) +
-    scale_color_viridis_d(option = "turbo") +
-    scale_fill_viridis_d(option = "turbo") +
+  
+  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_f1_weighted, color = model, fill = model)) +
+    # Linear Trend Line
+    geom_smooth(method = "lm", se = FALSE, linewidth = 0.6, alpha = 0.5) +
+    
+    # Scatter Points
+    geom_point(shape = 21, color = "black", stroke = 0.2, size = 2.5, alpha = 0.8) +
+    
+    # --- APPLY CONSISTENT COLORS ---
+    scale_color_manual(values = tool_colors, name = "Method") +
+    scale_fill_manual(values = tool_colors, name = "Method") +
+    
     scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
-    labs(x = x_label, y = "Mean F1 (Weighted)") +
+    labs(x = x_label, y = "Mean F1-Score") +
     theme_gb_scatter
   
   if(is_log) {
-    p <- p + scale_x_log10(labels = label_log(), 
-                           breaks = trans_breaks("log10", function(x) 10^x))
+    # Log scale for cells/sample
+    p <- p + scale_x_log10(
+      labels = label_log(), 
+      breaks = trans_breaks("log10", function(x) 10^x)
+    )
   }
   return(p)
 }
 
-# Generate 4 panels
-p_cells   <- create_plot(df_plot, "mean_cells", "Mean Cells / Sample", is_log = TRUE)
-p_markers <- create_plot(df_plot, "n_markers", "Number of Markers")
-p_samples <- create_plot(df_plot, "n_samples", "Number of Samples")
-p_pops    <- create_plot(df_plot, "n_populations", "Number of Populations")
+# 4. GENERATE PLOTS
 
+# A: Mean Cells per Sample (Log Scale)
+p_cells <- create_plot(df_plot, "mean_cells", "Mean Cells / Sample", is_log = TRUE)
+
+# B: Number of Markers (Now using the joined dataframe, so no NAs)
+p_markers <- create_plot(df_plot, "n_markers", "Number of Markers")
+
+# C: Number of Samples
+p_samples <- create_plot(df_plot, "n_samples", "Number of Samples")
+
+# D: Number of Populations
+p_pops <- create_plot(df_plot, "n_populations", "Number of Populations")
+
+# 5. ASSEMBLE WITH PATCHWORK
+# guides = "collect" merges the legends. 
+# Since all plots use the exact same color/fill scales, it produces ONE legend.
 final_fig <- (p_cells + p_markers) / (p_samples + p_pops) + 
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'a') & 
@@ -136,21 +211,22 @@ final_fig <- (p_cells + p_markers) / (p_samples + p_pops) +
     legend.position = "bottom", 
     legend.direction = "horizontal",
     legend.title = element_text(face = "bold", size = 9),
-    legend.text = element_text(size = 8),
+    legend.text = element_text(size = 9),
+    legend.key.size = unit(4, "mm"),
     plot.tag = element_text(face = "bold", size = 12)
   )
 
-# ------------------------------------------------------------------------------
-# 4. SAVE
-# ------------------------------------------------------------------------------
-ggsave(output_file, 
+# 6. SAVE
+outfile <- file.path(output_file, "Figure3_Metadata_Performance_Final.png")
+
+ggsave(outfile, 
        plot = final_fig, 
        width = 180, 
        height = 160, 
        units = "mm", 
        dpi = 600)
 
-cat(paste0("Success: Figure 3 saved to ", output_file, "\n"))
+print(paste("Saved Figure 3 to", outfile))
 
 ###
 # Usage example:
