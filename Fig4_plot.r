@@ -47,7 +47,7 @@ df_perf_raw <- read_tsv(path_perf, show_col_types = FALSE)
 metadata_json <- fromJSON(path_meta_json)
 
 # ------------------------------------------------------------------------------
-# 2. METADATA EXTRACTION
+# 2. MAPPINGS & REFERENCE DATA
 # ------------------------------------------------------------------------------
 name_map <- c(
   'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'CV',
@@ -97,11 +97,33 @@ tool_colors <- c(
   "Random"      = "#525252"   # Dark Grey
 )
 
+# ------------------------------------------------------------------------------
+# 3. DATA PROCESSING
+# ------------------------------------------------------------------------------
+
+# A. Parse Performance Data & Average Runtime
+# Note: Adapting regex to handle dataset naming conventions in params
+df_time_avg <- df_perf_raw %>%
+  # Exclude internal pipeline steps
+  filter(!module %in% c("data_import", "data_preprocessing", "flow_metrics", "f1_score", "metric_collector", "metrics")) %>%
+  mutate(
+    # Extract dataset name
+    extracted_name = str_match(params, 'dataset_name[^:]+:\\s*\"+([^\"]+)')[,2],
+    # Extract seed
+    extracted_seed = str_match(params, 'seed[^:]+:\\s*\"+([^\"]+)')[,2]
+  ) %>%
+  # Construct ID to match metadata keys
+  mutate(dataset_id = paste0("dataset_name-", extracted_name, "_seed-", extracted_seed)) %>%
+  filter(!is.na(extracted_name)) %>%
+  # Apply Model Map
+  mutate(model = recode(module, !!!model_map)) %>%
+  # Average runtime across seeds/CVs
+  group_by(dataset_id, model) %>%
+  summarise(mean_time_sec = mean(s, na.rm = TRUE), .groups = "drop")
 
 # B. Metadata Extraction Function
 extract_metadata_stats <- function(meta_list) {
   ds_ids <- names(meta_list)
-  
   results <- lapply(ds_ids, function(id) {
     entry <- meta_list[[id]]
     cells <- as.numeric(unlist(entry$cells_per_sample))
@@ -117,41 +139,30 @@ extract_metadata_stats <- function(meta_list) {
   })
   return(do.call(rbind, results))
 }
-# ------------------------------------------------------------------------------
-# 3. PARSE PERFORMANCE & SUMMARIZE
-# ------------------------------------------------------------------------------
-# A. Parse Performance Data & Average Runtime
-df_time_avg <- df_perf_raw %>%
-  # Exclude internal pipeline steps
-  filter(!module %in% c("data_import", "data_preprocessing", "flow_metrics", "f1_score", "metric_collector", "metrics")) %>%
-  # Regex to extract dataset name and seed from the params string
-  mutate(
-    extracted_name = str_match(params, 'dataset_name[^:]+:\\s*\"+([^\"]+)')[,2],
-    extracted_seed = str_match(params, 'seed[^:]+:\\s*\"+([^\"]+)')[,2],
-    dataset_id = paste0("dataset_name-", extracted_name, "_seed-", extracted_seed)
-  ) %>%
-  filter(!is.na(extracted_name)) %>%
-  # Apply Model Map immediately
-  mutate(model = recode(module, !!!model_map)) %>%
-  # Average runtime across seeds/CVs
-  group_by(dataset_id, model) %>%
-  summarise(mean_time_sec = mean(s, na.rm = TRUE), .groups = "drop")
 
 df_metadata <- extract_metadata_stats(metadata_json)
 
-# C. Merge
+# C. Merge and Calculate
 df_plot <- df_time_avg %>%
+  # 1. Join Metadata
   left_join(df_metadata, by = "dataset_id") %>%
+  # 2. Join Markers
   left_join(marker_map_df, by = "dataset_id") %>%
+  # 3. Filter
   filter(!str_detect(dataset_id, regex("sub-sampling", ignore_case = TRUE))) %>%
   filter(!str_detect(dataset_id, regex("Levine", ignore_case = TRUE))) %>%
   filter(!str_detect(model, regex("random", ignore_case = TRUE))) %>%
+  # 4. Clean Names
   mutate(dataset_clean = recode(dataset_id, !!!name_map)) %>%
-  filter(!is.na(dataset_clean))
+  filter(!is.na(dataset_clean)) %>%
+  # --- NEW CALCULATION: Markers per Population ---
+  mutate(markers_per_pop = n_markers / n_populations)
 
-# 3. THEME & PLOTTING FUNCTION
+# ------------------------------------------------------------------------------
+# 4. PLOTTING
+# ------------------------------------------------------------------------------
 
-# Shared Theme (Identical to Fig 3)
+# Shared Theme
 theme_gb_scatter <- theme_bw(base_size = 9) +
   theme(
     text = element_text(color = "black"),
@@ -165,12 +176,16 @@ theme_gb_scatter <- theme_bw(base_size = 9) +
 
 create_time_plot <- function(data, x_var, x_label, is_log_x = FALSE) {
   
-  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_time_sec, color = model, fill = model)) +
-    # Linear Trend Line
-    geom_smooth(method = "lm", se = FALSE, linewidth = 0.6, alpha = 0.5) +
+  # Ensure data is sorted by x_var so lines connect in order
+  data <- data %>% arrange(.data[[x_var]])
+  
+  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_time_sec, color = model, group = model)) +
+    
+    # Connect dots (geom_line) instead of regression
+    geom_line(linewidth = 0.5, alpha = 0.5) +
     
     # Scatter Points
-    geom_point(shape = 21, color = "black", stroke = 0.2, size = 2.5, alpha = 0.8) +
+    geom_point(aes(fill = model), shape = 21, color = "black", stroke = 0.2, size = 2.5, alpha = 0.8) +
     
     # --- COLORS ---
     scale_color_manual(values = tool_colors, name = "Method") +
@@ -194,15 +209,20 @@ create_time_plot <- function(data, x_var, x_label, is_log_x = FALSE) {
   return(p)
 }
 
-# 4. GENERATE PLOTS
+# Generate Specific Plots
 
-p_cells   <- create_time_plot(df_plot, "mean_cells", "Mean Cells / Sample", is_log_x = TRUE)
-p_markers <- create_time_plot(df_plot, "n_markers", "Number of Markers")
-p_samples <- create_time_plot(df_plot, "n_samples", "Number of Samples")
-p_pops    <- create_time_plot(df_plot, "n_populations", "Number of Populations")
+# Plot 1: Mean Cells (Log X) vs Runtime (Log Y)
+p_cells <- create_time_plot(df_plot, "mean_cells", "Mean Cells / Sample", is_log_x = TRUE)
 
-# 5. ASSEMBLE (Unified Legend)
-final_fig <- (p_cells + p_markers) / (p_samples + p_pops) + 
+# Plot 2: Markers per Pop (Linear X) vs Runtime (Log Y)
+p_markers_pop <- create_time_plot(df_plot, "markers_per_pop", "Number of Markers / Population")
+
+# ------------------------------------------------------------------------------
+# 5. ASSEMBLE AND SAVE
+# ------------------------------------------------------------------------------
+
+# Side by side layout
+final_fig <- (p_cells + p_markers_pop) + 
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'a') & 
   theme(
@@ -214,11 +234,16 @@ final_fig <- (p_cells + p_markers) / (p_samples + p_pops) +
     plot.tag = element_text(face = "bold", size = 12)
   )
 
-# 6. SAVE
+# Ensure output directory exists (basic check)
+if(!str_detect(output_file, "\\.png$")) {
+  output_file <- paste0(output_file, ".png")
+}
+
+# Reduced height for single row
 ggsave(output_file, 
        plot = final_fig, 
        width = 180, 
-       height = 160, 
+       height = 90, 
        units = "mm", 
        dpi = 600)
 
@@ -227,7 +252,7 @@ print(paste("Saved Figure 4 to", output_file))
 ###
 # Usage example:
 #Rscript Fig4_plot.r \
-#  --perf_input ./ob-blob-metrics/out/performances.tsv \
-#  --meta_json ./ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
-#  --output ./ob-pipeline-plots/Figure4_Runtime_Metadata.png
+#  --perf_input ../ob-blob-metrics/out/performances.tsv \
+#  --meta_json ../ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
+#  --output ../ob-pipeline-plots/Figure4_Runtime_Metadata.png
 ###

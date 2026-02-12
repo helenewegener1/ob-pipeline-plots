@@ -67,7 +67,7 @@ model_map <- c(
   'random'      = "Random"
 )
 
-# Robust Marker Map (Convert to Dataframe for safer joining)
+# Robust Marker Map
 marker_map_df <- data.frame(
   dataset_id = c(
     'dataset_name-FR-FCM-Z238_infection_final_seed-42',
@@ -103,7 +103,7 @@ df_f1_avg <- df_f1_raw %>%
   group_by(dataset, model) %>%
   summarise(mean_f1_weighted = mean(f1_weighted_median, na.rm = TRUE), .groups = "drop")
 
-# B. Metadata Extraction Function (Robust)
+# B. Metadata Extraction Function
 extract_metadata_stats <- function(meta_list) {
   ds_ids <- names(meta_list)
   
@@ -131,15 +131,17 @@ df_metadata <- extract_metadata_stats(metadata_json)
 df_plot <- df_f1_avg %>%
   # 1. Join Metadata (Cells, Samples, Pops)
   left_join(df_metadata, by = c("dataset" = "dataset_id")) %>%
-  # 2. Join Markers (From our hardcoded dataframe - fixes the NA issue)
+  # 2. Join Markers (From our hardcoded dataframe)
   left_join(marker_map_df, by = c("dataset" = "dataset_id")) %>%
   # 3. Filtering
   filter(!str_detect(dataset, regex("sub-sampling", ignore_case = TRUE))) %>%
-  filter(!str_detect(dataset, regex("Levine", ignore_case = TRUE))) %>% # Filter Levine as per your request
-  filter(!str_detect(model, regex("random", ignore_case = TRUE))) %>%   # Exclude Random from regression
-  # 4. Clean Names
+  filter(!str_detect(dataset, regex("Levine", ignore_case = TRUE))) %>% 
+  filter(!str_detect(model, regex("random", ignore_case = TRUE))) %>%
+  # 4. Clean Names & Calculations
   mutate(dataset_clean = recode(dataset, !!!name_map)) %>%
-  filter(!is.na(dataset_clean))
+  filter(!is.na(dataset_clean)) %>%
+  # --- NEW CALCULATION: Markers per Population ---
+  mutate(markers_per_pop = n_markers / n_populations)
 
 # 3. THEME & PLOTTING FUNCTION
 
@@ -162,12 +164,13 @@ theme_gb_scatter <- theme_bw(base_size = 9) +
 
 create_plot <- function(data, x_var, x_label, is_log = FALSE) {
   
-  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_f1_weighted, color = model, fill = model)) +
-    # Linear Trend Line
-    geom_smooth(method = "lm", se = FALSE, linewidth = 0.6, alpha = 0.5) +
+  p <- ggplot(data, aes(x = .data[[x_var]], y = mean_f1_weighted, color = model, group = model)) +
+    
+    # Connect dots (Instead of regression)
+    geom_line(linewidth = 0.5, alpha = 0.5) +
     
     # Scatter Points
-    geom_point(shape = 21, color = "black", stroke = 0.2, size = 2.5, alpha = 0.8) +
+    geom_point(aes(fill = model), shape = 21, color = "black", stroke = 0.2, size = 2.5, alpha = 0.8) +
     
     # --- APPLY CONSISTENT COLORS ---
     scale_color_manual(values = tool_colors, name = "Method") +
@@ -189,22 +192,15 @@ create_plot <- function(data, x_var, x_label, is_log = FALSE) {
 
 # 4. GENERATE PLOTS
 
-# A: Mean Cells per Sample (Log Scale)
+# Plot 1: Mean Cells per Sample (Log Scale)
 p_cells <- create_plot(df_plot, "mean_cells", "Mean Cells / Sample", is_log = TRUE)
 
-# B: Number of Markers (Now using the joined dataframe, so no NAs)
-p_markers <- create_plot(df_plot, "n_markers", "Number of Markers")
-
-# C: Number of Samples
-p_samples <- create_plot(df_plot, "n_samples", "Number of Samples")
-
-# D: Number of Populations
-p_pops <- create_plot(df_plot, "n_populations", "Number of Populations")
+# Plot 2: Markers per Population (New Request)
+p_markers_pop <- create_plot(df_plot, "markers_per_pop", "Number of Markers / Population")
 
 # 5. ASSEMBLE WITH PATCHWORK
-# guides = "collect" merges the legends. 
-# Since all plots use the exact same color/fill scales, it produces ONE legend.
-final_fig <- (p_cells + p_markers) / (p_samples + p_pops) + 
+# Side by side layout
+final_fig <- (p_cells + p_markers_pop) + 
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'a') & 
   theme(
@@ -217,12 +213,17 @@ final_fig <- (p_cells + p_markers) / (p_samples + p_pops) +
   )
 
 # 6. SAVE
-outfile <- file.path(output_file, "Figure3_Metadata_Performance_Final.png")
+# Ensure output directory exists if filename implies one, otherwise standard save
+outfile <- output_file
+if(!str_detect(outfile, "\\.png$")) {
+  outfile <- paste0(outfile, ".png")
+}
 
+# Adjusted height since we only have 1 row of plots now
 ggsave(outfile, 
        plot = final_fig, 
        width = 180, 
-       height = 160, 
+       height = 90, # Reduced height for single row
        units = "mm", 
        dpi = 600)
 
@@ -231,7 +232,7 @@ print(paste("Saved Figure 3 to", outfile))
 ###
 # Usage example:
 #Rscript Fig3_plot.r \
-#  --f1_weighted ./ob-blob-metrics/out/metric_collectors/metrics_report/samples_vs_f1_weighted.tsv \
-#  --meta_json ./ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
-#  --output ./ob-pipeline-plots/Figure3_Performance.png
+#  --f1_weighted ../ob-blob-metrics/out/metric_collectors/metrics_report/samples_vs_f1_weighted.tsv \
+#  --meta_json ../ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
+#  --output ../ob-pipeline-plots/Figure3_Performance.png
 ###
