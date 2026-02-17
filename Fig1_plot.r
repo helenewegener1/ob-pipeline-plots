@@ -48,7 +48,8 @@ name_map <- c(
   'dataset_name-Transformed_seed-42'                = 'TF',
   'dataset_name-flowcyt_seed-42' = 'HBM',
   'dataset_name-Levine_seed-42' = 'LV',
-  "dataset_name-FR-FCM-ZZRQ_seed-42" = "DCI"
+  "dataset_name-panel_CD20_seed-42" = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
 )
 
 model_map <- c(
@@ -57,6 +58,7 @@ model_map <- c(
 'dgcytof' = "DGCytof",
 'gatemeclass' = "GateMeClass",
 'lda' = "CyTOF LC",
+'knn' = "KNN",
 'random' = "Random"
 )
 
@@ -69,7 +71,8 @@ tissue_map <- c(
   'dataset_name-Transformed_seed-42'                = 'PBMCs',
   'dataset_name-flowcyt_seed-42' = 'Bone Marrow',
   'dataset_name-Levine_seed-42' = 'Bone Marrow',
-  "dataset_name-FR-FCM-ZZRQ_seed-42" = "PBMCs"
+  "dataset_name-panel_CD20_seed-42" = "PBMCs",
+  "dataset_name-panel_CD56_seed-42" = "PBMCs"
 )
 
 populations_map <- c(
@@ -81,7 +84,8 @@ populations_map <- c(
   'dataset_name-Transformed_seed-42'                = 8,
   'dataset_name-flowcyt_seed-42' = 5,
   'dataset_name-Levine_seed-42' = 15,
-  "dataset_name-FR-FCM-ZZRQ_seed-42" = 8
+  "dataset_name-panel_CD20_seed-42" = 8,
+  "dataset_name-panel_CD56_seed-42" = 8
 )
 
 marker_map <- c(
@@ -93,7 +97,8 @@ marker_map <- c(
   'dataset_name-Transformed_seed-42'                = 33,
   'dataset_name-flowcyt_seed-42' = 12,
   'dataset_name-Levine_seed-42' = 32,
-  "dataset_name-FR-FCM-ZZRQ_seed-42" = 9
+  "dataset_name-panel_CD20_seed-42" = 8,
+  "dataset_name-panel_CD56_seed-42" = 8
 )
 
 platform_map <- c(
@@ -105,7 +110,8 @@ platform_map <- c(
   'dataset_name-Transformed_seed-42'                = "CyTOF",
   'dataset_name-flowcyt_seed-42' = "FlowCyt",
   'dataset_name-Levine_seed-42' = 'CyTOF',
-  "dataset_name-FR-FCM-ZZRQ_seed-42" = "FlowCyt"
+  "dataset_name-panel_CD20_seed-42" = "FlowCyt",
+  "dataset_name-panel_CD56_seed-42" = "FlowCyt"
 )
 
 df <- read_tsv(input_file, show_col_types = FALSE)
@@ -153,8 +159,11 @@ df_no_random$display_name <- factor(df_no_random$display_name, levels = dataset_
 
 heatmap_data <- df_clean %>%
   group_by(model, display_name, platform) %>%
-  summarise(mean_f1 = mean(f1_macro, na.rm = TRUE), .groups = "drop")
-
+  summarise(mean_f1 = mean(f1_macro, na.rm = TRUE), .groups = "drop") %>%
+  # NEW: Create a label column that is empty if mean_f1 is NaN or NA
+  mutate(label_text = ifelse(is.na(mean_f1) | is.nan(mean_f1), 
+                             "", 
+                             sprintf("%.2f", mean_f1)))
 # ------------------------------------------------------------------------------
 # 4. PLOTTING
 # ------------------------------------------------------------------------------
@@ -170,7 +179,7 @@ theme_gb_base <- theme_minimal(base_size = 8, base_family = "sans") +
 # --- A. HEATMAP WITH PLATFORM FACETING ---
 p_heatmap <- ggplot(heatmap_data, aes(x = display_name, y = model, fill = mean_f1)) +
   geom_tile(color = "white", linewidth = 0.2) +
-  geom_text(aes(label = sprintf("%.2f", mean_f1)), size = 1.8, color = "black") +
+  geom_text(aes(label = label_text), size = 1.8, color = "black") +
   
   facet_grid(. ~ platform, scales = "free_x", space = "free_x") +
   

@@ -53,19 +53,22 @@ name_map <- c(
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
   'dataset_name-Samusik_seed-42'                    = 'MBM',
   'dataset_name-Transformed_seed-42'                = 'TF',
-  'dataset_name-flowcyt_seed-42'                    = 'HBM',
-  'dataset_name-Levine_seed-42'                     = 'LV',
-  "dataset_name-FR-FCM-ZZRQ_seed-42"                = "DCI"
+  'dataset_name-flowcyt_seed-42' = 'HBM',
+  'dataset_name-Levine_seed-42' = 'LV',
+  "dataset_name-panel_CD20_seed-42" = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
 )
 
 model_map <- c(
-  'cyanno'      = "CyAnno",
-  'cygate'      = "CyGATE",
-  'dgcytof'     = "DGCytof",
-  'gatemeclass' = "GateMeClass",
-  'lda'         = "CyTOF LC",
-  'random'      = "Random"
+'cyanno' = "CyAnno",
+'cygate' = "CyGATE",
+'dgcytof' = "DGCytof",
+'gatemeclass' = "GateMeClass",
+'lda' = "CyTOF LC",
+'knn' = "KNN",
+'random' = "Random"
 )
+
 
 # Robust Marker Map
 marker_map_df <- data.frame(
@@ -78,20 +81,22 @@ marker_map_df <- data.frame(
     'dataset_name-Transformed_seed-42',
     'dataset_name-flowcyt_seed-42',
     'dataset_name-Levine_seed-42',
-    "dataset_name-FR-FCM-ZZRQ_seed-42"
+    "dataset_name-panel_CD20_seed-42",
+    "dataset_name-panel_CD56_seed-42"
   ),
-  n_markers = c(37, 24, 24, 38, 39, 33, 12, 32, 9),
+  n_markers = c(37, 24, 24, 38, 39, 33, 12, 32, 8,8),
   stringsAsFactors = FALSE
 )
 
 # --- COLORS (Set1 Palette) ---
 tool_colors <- c(
-  "CyAnno"      = "#E41A1C",  # Red
-  "CyGATE"      = "#377EB8",  # Blue
-  "DGCytof"     = "#4DAF4A",  # Green
-  "GateMeClass" = "#984EA3",  # Purple
-  "CyTOF LC"    = "#FF7F00",  # Orange
-  "Random"      = "#525252"   # Dark Grey
+  "CyAnno"      = "#E41A1C",  # Bold Red
+  "CyGATE"      = "#377EB8",  # Strong Blue
+  "DGCytof"     = "#4DAF4A",  # Vivid Green
+  "GateMeClass" = "#984EA3",  # Deep Purple
+  "CyTOF LC"    = "#FF7F00",  # Strong Orange
+  'KNN' = "#ec7ed0",
+  "Random"      = "#525252"   # Dark Grey (Charcoal)
 )
 
 # ------------------------------------------------------------------------------
@@ -129,19 +134,19 @@ df_metadata <- extract_metadata_stats(metadata_json)
 
 # C. Merge and Final Cleanup
 df_plot <- df_f1_avg %>%
-  # 1. Join Metadata (Cells, Samples, Pops)
   left_join(df_metadata, by = c("dataset" = "dataset_id")) %>%
-  # 2. Join Markers (From our hardcoded dataframe)
   left_join(marker_map_df, by = c("dataset" = "dataset_id")) %>%
-  # 3. Filtering
-  filter(!str_detect(dataset, regex("sub-sampling", ignore_case = TRUE))) %>%
-  filter(!str_detect(dataset, regex("Levine", ignore_case = TRUE))) %>% 
-  filter(!str_detect(model, regex("random", ignore_case = TRUE))) %>%
-  # 4. Clean Names & Calculations
-  mutate(dataset_clean = recode(dataset, !!!name_map)) %>%
-  filter(!is.na(dataset_clean)) %>%
-  # --- NEW CALCULATION: Markers per Population ---
-  mutate(markers_per_pop = n_markers / n_populations)
+  filter(
+    !str_detect(dataset, regex("sub-sampling|Levine", ignore_case = TRUE)),
+    !str_detect(model, regex("random", ignore_case = TRUE))
+  ) %>%
+  mutate(
+    dataset_clean = recode(dataset, !!!name_map),
+    markers_per_pop = n_markers / n_populations
+  ) %>%
+  filter(!is.na(dataset_clean),mean_f1_weighted > 0) %>%
+  # drop_na is a concise way to handle multiple columns at once
+  tidyr::drop_na(mean_f1_weighted, mean_cells, markers_per_pop)
 
 # 3. THEME & PLOTTING FUNCTION
 

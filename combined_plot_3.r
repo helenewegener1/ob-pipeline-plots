@@ -53,29 +53,24 @@ name_map <- c(
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
   'dataset_name-Samusik_seed-42'                    = 'MBM',
   'dataset_name-Transformed_seed-42'                = 'TF',
-  'dataset_name-flowcyt_seed-42'                    = 'HBM',
-  'dataset_name-Levine_seed-42'                     = 'LV',
-  "dataset_name-FR-FCM-ZZRQ_seed-42"                = "DCI"
+  'dataset_name-flowcyt_seed-42' = 'HBM',
+  'dataset_name-Levine_seed-42' = 'LV',
+  "dataset_name-panel_CD20_seed-42" = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
 )
 
 model_map <- c(
-  'cyanno'      = "CyAnno",
-  'cygate'      = "CyGATE",
-  'dgcytof'     = "DGCytof",
-  'gatemeclass' = "GateMeClass",
-  'lda'         = "CyTOF LC",
-  'random'      = "Random"
+'cyanno' = "CyAnno",
+'cygate' = "CyGATE",
+'dgcytof' = "DGCytof",
+'gatemeclass' = "GateMeClass",
+'lda' = "CyTOF LC",
+'knn' = "KNN",
+'random' = "Random"
 )
 
-tool_colors <- c(
-  "CyAnno"      = "#E41A1C",
-  "CyGATE"      = "#377EB8",
-  "DGCytof"     = "#4DAF4A",
-  "GateMeClass" = "#984EA3",
-  "CyTOF LC"    = "#FF7F00",
-  "Random"      = "#525252"
-)
 
+# Robust Marker Map
 marker_map_df <- data.frame(
   dataset_id = c(
     'dataset_name-FR-FCM-Z238_infection_final_seed-42',
@@ -86,10 +81,21 @@ marker_map_df <- data.frame(
     'dataset_name-Transformed_seed-42',
     'dataset_name-flowcyt_seed-42',
     'dataset_name-Levine_seed-42',
-    "dataset_name-FR-FCM-ZZRQ_seed-42"
+    "dataset_name-panel_CD20_seed-42",
+    "dataset_name-panel_CD56_seed-42"
   ),
-  n_markers = c(37, 24, 24, 38, 39, 33, 12, 32, 9),
+  n_markers = c(37, 24, 24, 38, 39, 33, 12, 32, 8,8),
   stringsAsFactors = FALSE
+)
+
+# --- COLORS (Set1 Palette) ---
+tool_colors <- c(
+  "CyAnno"      = "#E41A1C",  # Bold Red
+  "CyGATE"      = "#377EB8",  # Strong Blue
+  "DGCytof"     = "#4DAF4A",  # Vivid Green
+  "GateMeClass" = "#984EA3",  # Deep Purple
+  "CyTOF LC"    = "#FF7F00",  # Strong Orange
+  'KNN' = "#ec7ed0"
 )
 
 theme_gb_scatter <- theme_bw(base_size = 9) +

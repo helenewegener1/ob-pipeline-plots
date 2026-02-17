@@ -51,18 +51,20 @@ name_map <- c(
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
   'dataset_name-Samusik_seed-42'                    = 'MBM',
   'dataset_name-Transformed_seed-42'                = 'TF',
-  'dataset_name-flowcyt_seed-42'                    = 'HBM',
-  'dataset_name-Levine_seed-42'                     = 'LV',
-  "dataset_name-FR-FCM-ZZRQ_seed-42"                = "DCI"
+  'dataset_name-flowcyt_seed-42' = 'HBM',
+  'dataset_name-Levine_seed-42' = 'LV',
+  "dataset_name-panel_CD20_seed-42" = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
 )
 
 model_map <- c(
-  'cyanno'      = "CyAnno",
-  'cygate'      = "CyGATE",
-  'dgcytof'     = "DGCytof",
-  'gatemeclass' = "GateMeClass",
-  'lda'         = "CyTOF LC",
-  'random'      = "Random"
+'cyanno' = "CyAnno",
+'cygate' = "CyGATE",
+'dgcytof' = "DGCytof",
+'gatemeclass' = "GateMeClass",
+'lda' = "CyTOF LC",
+'knn' = "KNN",
+'random' = "Random"
 )
 
 # --- DEFINING BOLD, "SERIOUS" COLORS (Set1 Palette - No Pastels) ---
@@ -72,6 +74,7 @@ tool_colors <- c(
   "DGCytof"     = "#4DAF4A",  # Vivid Green
   "GateMeClass" = "#984EA3",  # Deep Purple
   "CyTOF LC"    = "#FF7F00",  # Strong Orange
+  'KNN' = "#ec7ed0",
   "Random"      = "#525252"   # Dark Grey (Charcoal)
 )
 
