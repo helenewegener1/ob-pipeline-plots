@@ -60,8 +60,9 @@ name_map <- c(
 model_map <- c(
 'cyanno' = "CyAnno",
 'cygate' = "CyGATE",
-'dgcytof' = "DGCytof",
-'gatemeclass' = "GateMeClass",
+'dgcytof' = "DGCyTOF",
+'gatemeclass[V]' = "GateMeClass-V",
+'gatemeclass[E]' = "GateMeClass-E",
 'lda' = "CyTOF LC",
 'knn' = "KNN",
 'random' = "Random"
@@ -69,19 +70,22 @@ model_map <- c(
 
 # --- DEFINING BOLD, "SERIOUS" COLORS (Set1 Palette - No Pastels) ---
 tool_colors <- c(
-  "CyAnno"      = "#E41A1C",  # Bold Red
-  "CyGATE"      = "#377EB8",  # Strong Blue
-  "DGCytof"     = "#4DAF4A",  # Vivid Green
-  "GateMeClass" = "#984EA3",  # Deep Purple
-  "CyTOF LC"    = "#FF7F00",  # Strong Orange
-  'KNN' = "#ec7ed0",
-  "Random"      = "#525252"   # Dark Grey (Charcoal)
+  "CyAnno"        = "#E41A1C",  # Bold Red
+  "CyGATE"        = "#377EB8",  # Strong Blue
+  "DGCyTOF"       = "#4DAF4A",  # Vivid Green
+  "CyTOF LC"      = "#FF7F00",  # Strong Orange
+  "GateMeClass-E" = "#6A3D9A",  # Deep, highly saturated Purple
+  "GateMeClass-V" = "#CAB2D6",  # Light Lilac (pairs logically with E, but clearly distinct)
+  "KNN"           = "#17BECF",  # Bright Teal/Cyan (moves it entirely away from the purples/reds)
+  "Random"        = "#525252"   # Dark Grey
 )
 
 df <- read_tsv(input_file, show_col_types = FALSE)
 
 df_processed <- df %>%
   filter(!grepl("sub-sampling", dataset, ignore.case = TRUE)) %>%
+  # EXCLUDE DCI DATASETS
+  filter(!str_detect(dataset, "panel_CD20|panel_CD56")) %>%
   mutate(
     dataset = recode(dataset, !!!name_map),
     model   = recode(model, !!!model_map) 
@@ -421,6 +425,6 @@ if(length(plot_list) > 0) {
 ###
 # Usage example:
 #Rscript Fig2_plot.r \
-#  --conf_input ./ob-blob-metrics/out/metric_collectors/metrics_report/per_population_confusion.tsv \
-#  --output_dir ./ob-pipeline-plots
+#  --conf_input ../ob-blob-metrics/out/metric_collectors/metrics_report/per_population_confusion.tsv \
+#  --output_dir ../ob-pipeline-plots
 ###

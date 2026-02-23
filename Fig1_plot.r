@@ -55,8 +55,9 @@ name_map <- c(
 model_map <- c(
 'cyanno' = "CyAnno",
 'cygate' = "CyGATE",
-'dgcytof' = "DGCytof",
-'gatemeclass' = "GateMeClass",
+'dgcytof' = "DGCyTOF",
+'gatemeclass[V]' = "GateMeClass-V",
+'gatemeclass[E]' = "GateMeClass-E",
 'lda' = "CyTOF LC",
 'knn' = "KNN",
 'random' = "Random"
@@ -119,6 +120,8 @@ df <- read_tsv(input_file, show_col_types = FALSE)
 df_clean <- df %>%
   # EXCLUDE subsampled DATASETS
   filter(!str_detect(dataset, regex("sub-sampling", ignore_case = TRUE))) %>%
+  # EXCLUDE DCI DATASETS
+  filter(!str_detect(dataset, "panel_CD20|panel_CD56")) %>%
   mutate(
     platform = platform_map[dataset],
     markers  = marker_map[dataset],
@@ -259,7 +262,7 @@ print(paste("Saved to", output_file))
 
 ###
 # Usage example:
-# Rscript Fig1_plot.r \
-#  --f1_input ./ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv \
-#  --output ./ob-pipeline-plots/Figure1_Heatmap-boxplot.png
+#Rscript Fig1_plot.r \
+# --f1_input ../ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv \
+## --output ../ob-pipeline-plots/Figure1_Heatmap-boxplot.png
 ###
