@@ -98,24 +98,51 @@ df_processed <- df %>%
     actual_count = tp + fn
   )
 
-# 3. METADATA CALCULATION
+# ------------------------------------------------------------------------------
+# 3. METADATA CALCULATION & VALIDATION
+# ------------------------------------------------------------------------------
 pop_meta <- df_processed %>%
+  # 1. Use max() instead of first() to avoid NA/0 errors from failed models
   group_by(dataset, population_name) %>%
-  summarize(total_count = first(actual_count), .groups = "drop") %>%
+  summarize(total_count = max(actual_count, na.rm = TRUE), .groups = "drop") %>%
+  
+  # 2. Explicitly handle NAs in the sum
   group_by(dataset) %>%
   mutate(
-    pct = (total_count / sum(total_count)) * 100,
+    dataset_total = sum(total_count, na.rm = TRUE),
+    pct = (total_count / dataset_total) * 100,
     abundance_class = ifelse(pct < 1, "Rare (<1%)", "Common (>=1%)"),
     pop_label = paste0(population_name, " (", round(pct, 2), "%)")
   ) %>%
+  
+  # 3. Use min_rank() which handles ties gracefully (unlike row_number)
   group_by(dataset, abundance_class) %>%
-  mutate(rank_within_class = row_number(desc(total_count))) %>%
+  mutate(rank_within_class = min_rank(desc(total_count))) %>%
   ungroup()
+
+# --- 100% VALIDATION CHECK ---
+pct_check <- pop_meta %>%
+  group_by(dataset) %>%
+  summarize(total_pct = sum(pct), .groups = "drop") %>%
+  # We use near() with a small tolerance because floating point math can cause a sum to be 99.9999999
+  filter(!dplyr::near(total_pct, 100, tol = 0.01))
+
+if (nrow(pct_check) > 0) {
+  # Create a detailed error message listing the problematic datasets
+  error_msg <- paste(
+    "Error: The following datasets have subpopulation percentages that do not sum to 100%:\n",
+    paste(" -", pct_check$dataset, ":", round(pct_check$total_pct, 2), "%", collapse = "\n")
+  )
+  stop(error_msg, call. = FALSE)
+}
+# -----------------------------
 
 df_final <- df_processed %>%
   inner_join(pop_meta, by = c("dataset", "population_name"))
 
-# 4. THEME & GENERATION LOOP
+# ------------------------------------------------------------------------------
+# 4. THEME & GENERATION LOOP (Full Profile & Extremes)
+# ------------------------------------------------------------------------------
 gb_theme <- theme_bw(base_size = 9) + 
   theme(
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.5),
@@ -124,7 +151,6 @@ gb_theme <- theme_bw(base_size = 9) +
     strip.background = element_rect(fill = "white", color = "black", linewidth = 0.5),
     strip.text = element_text(face = "bold", size = 9, color = "black"),
     
-    # --- FIX FOR CUT LABELS ---
     # Increased bottom margin to 35mm to accommodate long, rotated labels
     plot.margin = margin(t = 5, r = 5, b = 5, l = 5, unit = "mm"),
     
@@ -198,9 +224,10 @@ for (ds_name in unique_datasets) {
   ggsave(file.path(output_dir, paste0("Fig2_Extremes_", ds_name, ".png")), p2, width = 180, height = 120, units = "mm", dpi = 600)
 }
 
-# 4. PLOTTING LOOP (STORE PLOTS IN LIST)
+# ------------------------------------------------------------------------------
+# 5. MULTI-PANEL A4 GRID PLOTTING LOOP
+# ------------------------------------------------------------------------------
 plot_list <- list()
-unique_datasets <- unique(df_final$dataset)
 
 # Shared Theme for Sub-plots
 sub_theme <- theme_bw(base_size = 6) + 
@@ -225,14 +252,14 @@ sub_theme <- theme_bw(base_size = 6) +
 
 for (ds_name in unique_datasets) {
   
-  # Filter: Top 5 Common + All Rare
+  # Filter: Common + All Rare
   p_data <- df_final %>%
     filter(dataset == ds_name) %>%
-    filter(abundance_class == "Rare (<1%)" | (abundance_class == "Common (>=1%)" & rank_within_class <= 5)) %>%
     mutate(
       abundance_class = factor(abundance_class, levels = c("Common (>=1%)", "Rare (<1%)")),
       pop_label = reorder(pop_label, -actual_count)
     )
+  
   
   # Skip empty datasets
   if(nrow(p_data) == 0) next
@@ -257,11 +284,9 @@ for (ds_name in unique_datasets) {
   plot_list[[ds_name]] <- p
 }
 
-# 5. ASSEMBLE GRID (3 LEFT, 3 RIGHT = 2 Columns)
-# We sort the plots to ensure consistent order (optional)
+# ASSEMBLE GRID (3 LEFT, 3 RIGHT = 2 Columns)
 plot_list <- plot_list[sort(names(plot_list))]
 
-# Extract Legend from a dummy plot
 legend_plot <- ggplot(df_final, aes(x=model, y=f1_score, fill=model, color=model)) +
   geom_boxplot(alpha=0.7) +
   scale_fill_manual(values = tool_colors, name = "Method") +
@@ -271,25 +296,19 @@ legend_plot <- ggplot(df_final, aes(x=model, y=f1_score, fill=model, color=model
 
 common_legend <- cowplot::get_legend(legend_plot)
 
-# Combine plots using Patchwork
-# If you have exactly 6 datasets, this makes a 3x2 grid. 
-# If you have 9 (from the map), it extends naturally.
 final_grid <- wrap_plots(plot_list, ncol = 2) +
   plot_annotation(
     title = "",
     theme = theme(plot.title = element_text(face="bold", size=12))
   )
 
-# Add shared Y axis label and Legend
 final_figure <- cowplot::plot_grid(
   final_grid,
   common_legend,
   ncol = 1,
-  rel_heights = c(1, 0.05) # Allocate space for legend at bottom
+  rel_heights = c(1, 0.05)
 )
 
-# 6. SAVE (A4 SIZE)
-# A4 is 210 x 297 mm. We use 190x270 to leave margin.
 ggsave(
   file.path(output_dir, "Figure2_MultiPanel_A4.png"), 
   plot = final_figure, 
@@ -301,8 +320,10 @@ ggsave(
 
 print(paste("Saved to", file.path(output_dir, "Figure2_MultiPanel_A4.png")))
 
-
-# 4. FILTER DATASETS (Must have both Common and Rare)
+# ------------------------------------------------------------------------------
+# 6. REFINED A4 GRID (Top 5 Common & Rare)
+# ------------------------------------------------------------------------------
+# FILTER DATASETS (Must have both Common and Rare)
 valid_datasets <- pop_meta %>%
   group_by(dataset) %>%
   summarize(
@@ -312,24 +333,18 @@ valid_datasets <- pop_meta %>%
   filter(has_common & has_rare) %>%
   pull(dataset)
 
-
-# 5. SUBPLOT THEME
+# SUBPLOT THEME
 gb_theme_subplot <- theme_bw(base_size = 8) + 
   theme(
-    # Clean Borders
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.3),
     panel.grid.major = element_line(color = "grey95", linewidth = 0.2), 
     panel.grid.minor = element_blank(),
-    
-    # Strip (Header) Styling - Clean White
     strip.background = element_rect(fill = "white", color = "black", linewidth = 0.3),
     strip.text = element_text(face = "bold", size = 7, color = "black"),
     
     # CRITICAL: Margins to prevent name cutting
-    # Top=2mm, Right=2mm, Bottom=35mm (SPACE FOR NAMES), Left=2mm
     plot.margin = margin(2, 2, 2, 16, "mm"),
     
-    # Axis Text
     axis.text.x = element_text(angle = 45, hjust = 1, size = 5.5, color="black"),
     axis.text.y = element_text(size = 6, color="black"),
     axis.title = element_blank(),
@@ -338,28 +353,25 @@ gb_theme_subplot <- theme_bw(base_size = 8) +
     plot.title = element_text(face = "bold", size = 9, hjust = 0, margin = margin(b=3))
   )
 
-# 6. PLOTTING LOOP
-plot_list <- list()
+plot_list_refined <- list()
 
 for (ds_name in valid_datasets) {
   
-  # Filter Data: Dataset -> Top 5 Common OR Top 5 Rare
   p_data <- df_final %>%
     filter(dataset == ds_name) %>%
     filter(rank_within_class <= 5) %>% 
     mutate(
       abundance_class = factor(abundance_class, levels = c("Common (>=1%)", "Rare (<1%)")),
-      # Order X axis by Percentage Descending
       pop_label = reorder(pop_label, -pct)
     )
   
   p <- ggplot(p_data, aes(x = pop_label, y = f1_score, fill = model, color = model)) +
     geom_boxplot(
       outlier.size = 0.1, 
-      lwd = 0.25,      # Thin clean lines
-      alpha = 0.7,     # Transparent fill
-      width = 0.65,    # Not too fat
-      fatten = 1       # Clear median line
+      lwd = 0.25,      
+      alpha = 0.7,     
+      width = 0.65,    
+      fatten = 1       
     ) +
     facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
     
@@ -370,13 +382,11 @@ for (ds_name in valid_datasets) {
     labs(title = ds_name) +
     gb_theme_subplot
   
-  plot_list[[ds_name]] <- p
+  plot_list_refined[[ds_name]] <- p
 }
 
-# 7. ASSEMBLE A4 GRID
-if(length(plot_list) > 0) {
+if(length(plot_list_refined) > 0) {
   
-  # Extract Legend
   legend_plot <- ggplot(df_final, aes(x=model, y=f1_score, fill=model, color=model)) +
     geom_boxplot(alpha=0.7) +
     scale_fill_manual(values = tool_colors, name = "Method") +
@@ -390,22 +400,15 @@ if(length(plot_list) > 0) {
   
   common_legend <- get_legend(legend_plot)
   
-  # Create Grid (2 Columns for A4)
-  # align = 'hv' ensures all panels line up perfectly
-  # axis = 'tb' ensures the plots are aligned top-to-bottom
-  p_grid <- plot_grid(plotlist = plot_list, ncol = 2, align = 'hv', axis = 'tb')
+  p_grid <- plot_grid(plotlist = plot_list_refined, ncol = 2, align = 'hv', axis = 'tb')
   
-  # Combine with Legend
   final_plot <- plot_grid(
     p_grid,
     common_legend,
     ncol = 1,
-    rel_heights = c(1, 0.05) # Legend takes 5% of height
+    rel_heights = c(1, 0.05) 
   )
   
-  # 8. SAVE
-  # A4 Dimensions: 210mm x 297mm
-  # We use the full size. The margins inside the subplots handle the spacing.
   outfile <- file.path(output_dir, "Figure2_A4_Top5_Refined.png")
   
   ggsave(
@@ -422,6 +425,7 @@ if(length(plot_list) > 0) {
 } else {
   print("No valid datasets found.")
 }
+
 ###
 # Usage example:
 #Rscript Fig2_plot.r \

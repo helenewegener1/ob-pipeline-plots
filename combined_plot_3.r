@@ -25,8 +25,11 @@ option_list <- list(
               help = "Path to run_metrics.tsv", metavar = "character"),
   make_option(c("-j", "--meta_json"), type = "character", default = NULL,
               help = "Path to dataset_metadata.json", metavar = "character"),
-  make_option(c("-o", "--output"), type = "character", default = "Figure_Combined_Grid.png",
-              help = "Output filename", metavar = "character")
+  # CHANGED: Replaced single output with two distinct output options
+  make_option(c("-o", "--out_fig1"), type = "character", default = "Figure_Markers_Pops.png",
+              help = "Output filename for Markers and Populations grid", metavar = "character"),
+  make_option(c("-q", "--out_fig2"), type = "character", default = "Figure_Cells_TrainSize.png",
+              help = "Output filename for Mean Cells and Train Size grid", metavar = "character")
 )
 
 opt_parser <- OptionParser(option_list = option_list)
@@ -111,8 +114,7 @@ cell_stats <- do.call(rbind, lapply(names(metadata_json), function(id) {
 df_general_meta <- data.frame(dataset_id = names(name_map)) %>%
   mutate(n_populations = recode(dataset_id, !!!populations_map),
          n_markers     = recode(dataset_id, !!!marker_map)) %>%
-  left_join(cell_stats, by = "dataset_id") %>%
-  mutate(markers_per_pop = n_markers / n_populations)
+  left_join(cell_stats, by = "dataset_id")
 
 # --- F1 Score Processing ---
 df_f1_clean <- df_f1_raw %>%
@@ -125,8 +127,7 @@ df_f1_avg <- df_f1_clean %>%
   group_by(dataset, model) %>%
   summarise(mean_f1_macro = mean(f1_macro, na.rm = TRUE), .groups = "drop")
 
-# --- Performance Processing (UPDATED FOR run_metrics.tsv) ---
-# We no longer need str_match() to extract dataset parameters.
+# --- Performance Processing ---
 df_perf_processed <- df_perf_raw %>%
   rename(dataset_id = dataset, model_raw = model) %>%
   filter(model_raw != "random")
@@ -136,7 +137,6 @@ df_time_avg <- df_perf_processed %>%
   semi_join(df_f1_clean, by = c("dataset_id" = "dataset", "model_raw" = "model")) %>%
   mutate(model = recode(model_raw, !!!model_map)) %>%
   group_by(dataset_id, model) %>%
-  # Use runtime_seconds from the new file format
   summarise(mean_time_sec = mean(runtime_seconds, na.rm = TRUE), .groups = "drop")
 
 # Join for plotting
@@ -157,14 +157,7 @@ df_subsampling_time <- df_perf_processed %>%
   mutate(train_size = as.numeric(str_extract(dataset_id, "(?<=sub-sampling-)\\d+")),
          model = recode(model_raw, !!!model_map)) %>%
   group_by(model, train_size) %>% 
-  # Use runtime_seconds from the new file format
   summarise(mean_time = mean(runtime_seconds, na.rm = TRUE), .groups = "drop")
-
-# --- VERBOSE DATA CHECK ---
-message(paste("Rows in df_plot_f1 (A/B):", nrow(df_plot_f1)))
-message(paste("Rows in df_plot_time (C/D):", nrow(df_plot_time)))
-message(paste("Rows in df_subsampling_f1 (F):", nrow(df_subsampling_f1)))
-message(paste("Rows in df_subsampling_time (E):", nrow(df_subsampling_time)))
 
 # ------------------------------------------------------------------------------
 # 5. PLOTTING
@@ -172,40 +165,75 @@ message(paste("Rows in df_subsampling_time (E):", nrow(df_subsampling_time)))
 my_colors <- scale_color_manual(values = tool_colors, name = "Method")
 y_f1_limit <- scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2))
 
-p_a <- ggplot(df_plot_f1, aes(mean_cells, mean_f1_macro, color=model)) + 
-  geom_line(alpha=0.3) + geom_point() + scale_x_log10(labels = label_log()) + 
-  my_colors + y_f1_limit + labs(x="Mean Cells per Sample", y="Mean F1 Macro") + theme_gb_scatter
-
-p_b <- ggplot(df_plot_f1, aes(markers_per_pop, mean_f1_macro, color=model)) + 
+# --- Group 1: Markers and Populations ---
+p_markers_f1 <- ggplot(df_plot_f1, aes(n_markers, mean_f1_macro, color=model)) + 
   geom_line(alpha=0.3) + geom_point() + 
-  my_colors + y_f1_limit + labs(x="Markers per Pop", y="Mean F1 Macro") + theme_gb_scatter
+  my_colors + y_f1_limit + labs(x="Number of Markers", y="Mean F1") + theme_gb_scatter
 
-p_c <- ggplot(df_plot_time, aes(mean_cells, mean_time_sec, color=model)) + 
+p_markers_time <- ggplot(df_plot_time, aes(n_markers, mean_time_sec, color=model)) + 
+  geom_line(alpha=0.3) + geom_point() + scale_y_log10() +
+  my_colors + labs(x="Number of Markers", y="Mean Runtime (s)") + theme_gb_scatter
+
+p_pops_f1 <- ggplot(df_plot_f1, aes(n_populations, mean_f1_macro, color=model)) + 
+  geom_line(alpha=0.3) + geom_point() + 
+  my_colors + y_f1_limit + labs(x="Number of Populations", y="Mean F1") + theme_gb_scatter
+
+p_pops_time <- ggplot(df_plot_time, aes(n_populations, mean_time_sec, color=model)) + 
+  geom_line(alpha=0.3) + geom_point() + scale_y_log10() +
+  my_colors + labs(x="Number of Populations", y="Mean Runtime (s)") + theme_gb_scatter
+
+# --- Group 2: Cells and Train Size ---
+p_cells_f1 <- ggplot(df_plot_f1, aes(mean_cells, mean_f1_macro, color=model)) + 
+  geom_line(alpha=0.3) + geom_point() + scale_x_log10(labels = label_log()) + 
+  my_colors + y_f1_limit + labs(x="Mean Cells per Sample", y="Mean F1") + theme_gb_scatter
+
+p_cells_time <- ggplot(df_plot_time, aes(mean_cells, mean_time_sec, color=model)) + 
   geom_line(alpha=0.3) + geom_point() + scale_x_log10(labels = label_log()) + scale_y_log10() +
   my_colors + labs(x="Mean Cells per Sample", y="Mean Runtime (s)") + theme_gb_scatter
 
-p_d <- ggplot(df_plot_time, aes(markers_per_pop, mean_time_sec, color=model)) + 
-  geom_line(alpha=0.3) + geom_point() + scale_y_log10() +
-  my_colors + labs(x="Markers per Pop", y="Mean Runtime (s)") + theme_gb_scatter
+p_train_f1 <- ggplot(df_subsampling_f1, aes(train_size, mean_f1, color=model)) + 
+  geom_line() + geom_point() + scale_x_continuous(labels = label_number(suffix="K", scale=1e-3)) +
+  my_colors + y_f1_limit + labs(x="Train Size", y="Mean F1") + theme_gb_scatter
 
-p_e <- ggplot(df_subsampling_time, aes(train_size, mean_time, color=model)) + 
+p_train_time <- ggplot(df_subsampling_time, aes(train_size, mean_time, color=model)) + 
   geom_line() + geom_point() + scale_y_log10() + scale_x_continuous(labels = label_number(suffix="K", scale=1e-3)) +
   my_colors + labs(x="Train Size", y="Mean Runtime (s)") + theme_gb_scatter
-
-p_f <- ggplot(df_subsampling_f1, aes(train_size, mean_f1, color=model)) + 
-  geom_line() + geom_point() + scale_x_continuous(labels = label_number(suffix="K", scale=1e-3)) +
-  my_colors + y_f1_limit + labs(x="Train Size", y="Mean F1 Macro") + theme_gb_scatter
 
 # ------------------------------------------------------------------------------
 # 6. GRID & SAVE
 # ------------------------------------------------------------------------------
-legend <- get_legend(p_a)
-p_list <- lapply(list(p_a, p_b, p_c, p_d, p_e, p_f), function(x) x + theme(legend.position="none"))
-grid <- plot_grid(plotlist = p_list, ncol = 2, labels = "auto", align = "hv")
-final <- plot_grid(grid, legend, ncol = 1, rel_heights = c(1, 0.1))
+legend <- get_legend(p_cells_f1)
 
-ggsave(opt$output, final, width = 180, height = 240, units = "mm", dpi = 600)
-message(paste("Figure saved to:", opt$output))
+# Helper function to remove legend from individual plots before gridding
+strip_legend <- function(p) p + theme(legend.position="none")
+
+# --- GRID 1: Markers & Populations ---
+grid1 <- plot_grid(
+  strip_legend(p_markers_f1), strip_legend(p_markers_time),
+  strip_legend(p_pops_f1),    strip_legend(p_pops_time),
+  ncol = 2, labels = "auto", align = "hv"
+)
+final1 <- plot_grid(grid1, legend, ncol = 1, rel_heights = c(1, 0.1))
+
+# --- GRID 2: Cells & Train Size ---
+grid2 <- plot_grid(
+  strip_legend(p_cells_f1), strip_legend(p_cells_time),
+  strip_legend(p_train_f1), strip_legend(p_train_time),
+  ncol = 2, labels = "auto", align = "hv"
+)
+final2 <- plot_grid(grid2, legend, ncol = 1, rel_heights = c(1, 0.1))
+
+# Adjusted height to 160mm since these are now 2-row grids instead of 4-row
+ggsave(opt$out_fig1, final1, width = 180, height = 160, units = "mm", dpi = 600)
+ggsave(opt$out_fig2, final2, width = 180, height = 160, units = "mm", dpi = 600)
+
+message(paste("Figure 1 saved to:", opt$out_fig1))
+message(paste("Figure 2 saved to:", opt$out_fig2))
 
 ### Usage example:
-#Rscript ./combined_plot_3.r   --f1_macro ../ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv   --perf_input ../ob-blob-metrics/out/metric_collectors/metrics_report/run_metrics.tsv   --meta_json ../ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json   --output ../ob-pipeline-plots/Figure3_Combined_Grid.png
+#Rscript ./combined_plot_3.r \
+#  --f1_macro ../ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv \
+#  --perf_input ../ob-blob-metrics/out/metric_collectors/metrics_report/run_metrics.tsv \
+#  --meta_json ../ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
+#  --out_fig1 ../ob-pipeline-plots/Figure3a_Markers_Pops.png \
+#  --out_fig2 ../ob-pipeline-plots/Figure3b_Cells_TrainSize.png

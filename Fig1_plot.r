@@ -164,9 +164,13 @@ heatmap_data <- df_clean %>%
   group_by(model, display_name, platform) %>%
   summarise(mean_f1 = mean(f1_macro, na.rm = TRUE), .groups = "drop") %>%
   # NEW: Create a label column that is empty if mean_f1 is NaN or NA
-  mutate(label_text = ifelse(is.na(mean_f1) | is.nan(mean_f1), 
-                             "", 
-                             sprintf("%.2f", mean_f1)))
+  mutate(
+    label_text = case_when(
+      is.na(mean_f1) | is.nan(mean_f1) ~ "",
+      str_detect(model, "GateMeClass") ~ sprintf("%.2f*", mean_f1),
+      TRUE ~ sprintf("%.2f", mean_f1)
+    )
+  )
 # ------------------------------------------------------------------------------
 # 4. PLOTTING
 # ------------------------------------------------------------------------------
