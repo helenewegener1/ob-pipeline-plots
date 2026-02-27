@@ -35,6 +35,10 @@ if (is.null(opt$f1_input)) {
 input_file <- opt$f1_input
 output_file <- opt$output
 
+input_file <- "Documents/courses/Benchmarking/repos/ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv"
+output_file <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/Figure1_Heatmap-boxplot.png"
+
+
 # ------------------------------------------------------------------------------
 # 2. DATA PROCESSING & MAPPINGS
 # ------------------------------------------------------------------------------
@@ -59,7 +63,7 @@ model_map <- c(
 'gatemeclass[V]' = "GateMeClass-V",
 'gatemeclass[E]' = "GateMeClass-E",
 'lda' = "CyTOF LC",
-'knn' = "KNN",
+'knn' = "kNN",
 'random' = "Random"
 )
 
@@ -130,7 +134,7 @@ df_clean <- df %>%
     populations = populations_map[dataset],
     clean_name = recode(dataset, !!!name_map),
     display_name = ifelse(!is.na(markers), 
-                          paste0(clean_name, " (",tissue,"- M:", markers, "- P:",populations, ")"), 
+                          paste0(clean_name, " (",tissue,", M:", markers, ", P:",populations, ")"), 
                           clean_name),
     platform = ifelse(is.na(platform), "Other", platform)
   )
@@ -180,7 +184,7 @@ theme_gb_base <- theme_minimal(base_size = 8, base_family = "sans") +
     text = element_text(color = "black"),
     axis.text = element_text(size = 7, color = "black"),
     axis.title = element_text(size = 8, face = "bold", color = "black"),
-    plot.margin = margin(2, 2, 2, 2)
+    plot.margin = margin(2, 2, 2, 2, unit = "pt")
   )
 
 # --- A. HEATMAP WITH PLATFORM FACETING ---
@@ -203,11 +207,12 @@ p_heatmap <- ggplot(heatmap_data, aes(x = display_name, y = model, fill = mean_f
     # Angle at 45 or 90 for better readability of long names
     axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0),
     # Add space between the labels and the "Training set" title
-    axis.title.x = element_text(margin = margin(b = 20), size = 9), 
-    panel.spacing = unit(8, "pt"),
+    # axis.title.x = element_text(margin = margin(b = 20), size = 9), 
+    panel.spacing = unit(6, "pt"),
     strip.background = element_rect(fill = "grey95", color = NA),
     strip.text = element_text(face = "bold", size = 8),
-    panel.grid = element_blank()
+    panel.grid = element_blank(), 
+    plot.margin = margin(b = 0, r = 3, unit = "pt")
   )
 
 # --- B. RIGHT BOXPLOT (No Red Dot) ---
@@ -220,7 +225,7 @@ p_right <- ggplot(df_clean, aes(x = f1_macro, y = model)) +
   theme(
     panel.background = element_rect(fill = "grey95", color = NA),
     axis.text.y = element_blank(),
-    plot.margin = margin(l = 2)
+    plot.margin = margin(l = 3, unit = "pt")
   )
 
 # --- C. BOTTOM BOXPLOT (No Red Dot, Faceted) ---
@@ -237,21 +242,41 @@ p_bottom <- ggplot(df_no_random, aes(x = display_name, y = f1_macro)) +
     strip.background = element_blank(),
     strip.text = element_blank(),
     panel.spacing = unit(6, "pt"),
-    plot.margin = margin(t = 2)
+    plot.margin = margin(t = 0, unit = "pt")
   )
+
+# p_heatmap <- p_heatmap + theme(
+#   axis.ticks.x.bottom = element_blank(),
+#   axis.text.x.bottom = element_blank()
+# )
+
+wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design) 
+
+# p_heatmap <- p_heatmap + theme(plot.margin = margin(2, 2, 2, 2, "pt"))
+# p_right   <- p_right   + theme(plot.margin = margin(2, 2, 2, 2, "pt"))
+# p_bottom  <- p_bottom  + theme(plot.margin = margin(2, 2, 2, 2, "pt"))
 
 # ------------------------------------------------------------------------------
 # 5. COMPOSITION & SAVING
 # ------------------------------------------------------------------------------
 
+# design <- "
+# AAAAB
+# AAAAB
+# AAAAB
+# CCCC#
+# "
 design <- "
-AAAAB
-AAAAB
-AAAAB
-CCCC#
+AAAAABB
+AAAAABB
+AAAAABB
+CCCCC##
 "
 
-final_plot <- wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design)
+# final_plot <- wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design)
+final_plot <- wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design) 
+
+# ggsave(output_file, plot = final_plot, width = final_w, height = final_h + 10, units = "mm", dpi = 600)
 
 # Dynamic Sizing (mm)
 n_tools <- length(unique(df_clean$model))
@@ -270,3 +295,4 @@ print(paste("Saved to", output_file))
 # --f1_input ../ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv \
 ## --output ../ob-pipeline-plots/Figure1_Heatmap-boxplot.png
 ###
+

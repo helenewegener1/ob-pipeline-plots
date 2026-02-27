@@ -36,6 +36,9 @@ if (is.null(opt$conf_input)) {
 input_file <- opt$conf_input
 output_dir <- opt$output_dir
 
+input_file <- "Documents/courses/Benchmarking/repos/ob-blob-metrics/out/metric_collectors/metrics_report/per_population_confusion.tsv"
+output_dir <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/"
+
 # Create output directory if it doesn't exist
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
@@ -64,7 +67,7 @@ model_map <- c(
 'gatemeclass[V]' = "GateMeClass-V",
 'gatemeclass[E]' = "GateMeClass-E",
 'lda' = "CyTOF LC",
-'knn' = "KNN",
+'knn' = "kNN",
 'random' = "Random"
 )
 
@@ -76,7 +79,7 @@ tool_colors <- c(
   "CyTOF LC"      = "#FF7F00",  # Strong Orange
   "GateMeClass-E" = "#6A3D9A",  # Deep, highly saturated Purple
   "GateMeClass-V" = "#CAB2D6",  # Light Lilac (pairs logically with E, but clearly distinct)
-  "KNN"           = "#17BECF",  # Bright Teal/Cyan (moves it entirely away from the purples/reds)
+  "kNN"           = "#17BECF",  # Bright Teal/Cyan (moves it entirely away from the purples/reds)
   "Random"        = "#525252"   # Dark Grey
 )
 
@@ -111,8 +114,15 @@ pop_meta <- df_processed %>%
   mutate(
     dataset_total = sum(total_count, na.rm = TRUE),
     pct = (total_count / dataset_total) * 100,
-    abundance_class = ifelse(pct < 1, "Rare (<1%)", "Common (>=1%)"),
-    pop_label = paste0(population_name, " (", round(pct, 2), "%)")
+    # abundance_class IF in top 3 "top_3" if bottom 3 "bottom_3" else NA
+    abundance_class = case_when(
+      min_rank(desc(total_count)) <= 3  ~ "Most prevalent",
+      min_rank(total_count)       <= 3  ~ "Least prevalent",
+      TRUE                              ~ NA_character_
+    ),
+    # abundance_class = ifelse(pct < 1, "Rare (<1%)", "Common (>=1%)"),
+    pop_label = paste0(population_name, " (", round(pct, 2), "%)"),
+    pop_label_newline = paste0(population_name, "\n", round(pct, 2), "%")
   ) %>%
   
   # 3. Use min_rank() which handles ties gracefully (unlike row_number)
@@ -138,7 +148,10 @@ if (nrow(pct_check) > 0) {
 # -----------------------------
 
 df_final <- df_processed %>%
-  inner_join(pop_meta, by = c("dataset", "population_name"))
+  inner_join(pop_meta, by = c("dataset", "population_name")) 
+
+# df_final <- df_processed %>%
+#   left_join(pop_meta, by = c("dataset", "population_name")) %>% distinct()
 
 # ------------------------------------------------------------------------------
 # 4. THEME & GENERATION LOOP (Full Profile & Extremes)
@@ -169,7 +182,12 @@ unique_datasets <- unique(df_final$dataset)
 
 for (ds_name in unique_datasets) {
   
-  ds_data <- df_final %>% filter(dataset == ds_name)
+  # ds_name <- "CV"
+  
+  ds_data <- df_final %>% filter(dataset == ds_name) 
+  ds_name_n_cells <- df_final %>% filter(dataset == ds_name) %>% select(dataset_total) %>% unique() %>% pull()
+  
+  pop_meta %>% filter(dataset == ds_name)
   
   # --- PLOT TYPE 1: FULL PROFILE ---
   p1_data <- ds_data %>% mutate(pop_label = reorder(pop_label, -actual_count))
@@ -186,9 +204,9 @@ for (ds_name in unique_datasets) {
     # APPLY BOLD COLORS
     scale_fill_manual(values = tool_colors, name = "Method") +
     scale_color_manual(values = tool_colors, name = "Method") +
-    
+
     scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
-    labs(title = paste(ds_name, "- Full Population Profile"), x = NULL, y = "F1-Score") +
+    labs(title = paste(ds_name, "- Full Population Profile"), x = NULL, y = "F1-Score", subtitle = paste("N cells:", format(ds_name_n_cells, big.mark = ","))) +
     gb_theme
   
   # Dynamic Width: Ensure at least 15cm, add space for many populations
@@ -198,11 +216,13 @@ for (ds_name in unique_datasets) {
 
   # --- PLOT TYPE 2: EXTREMES (TOP 5 COMMON VS ALL RARE) ---
   p2_data <- ds_data %>%
-    filter(abundance_class == "Rare (<1%)" | (abundance_class == "Common (>=1%)" & rank_within_class <= 5)) %>%
+    filter(abundance_class == "Most prevalent" | (abundance_class == "Least prevalent" & rank_within_class <= 5)) %>%
     mutate(
-      abundance_class = factor(abundance_class, levels = c("Common (>=1%)", "Rare (<1%)")),
+      abundance_class = factor(abundance_class, levels = c("Most prevalent", "Least prevalent")),
       pop_label = reorder(pop_label, -actual_count)
     )
+  
+  n_pop <- p2_data$population_name %>% unique() %>% length()
 
   p2 <- ggplot(p2_data, aes(x = pop_label, y = f1_score, fill = model, color = model)) +
     geom_boxplot(
@@ -211,17 +231,24 @@ for (ds_name in unique_datasets) {
       alpha = 0.7,
       width = 0.75
     ) +
-    facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
+    
+    (if (n_pop >= 6) facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") else NULL) +
     
     # APPLY BOLD COLORS
     scale_fill_manual(values = tool_colors, name = "Method") +
     scale_color_manual(values = tool_colors, name = "Method") +
     
     scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
-    labs(title = paste(ds_name, "- Performance Extremes (Common vs. Rare)"), x = NULL, y = "F1-Score") +
+    labs(
+      title = paste(ds_name, "- Most and least prevalent cell populations"), 
+      x = NULL, 
+      y = "F1-Score",
+      subtitle = paste("N cells:", format(ds_name_n_cells, big.mark = ","))
+      ) +
     gb_theme
   
   ggsave(file.path(output_dir, paste0("Fig2_Extremes_", ds_name, ".png")), p2, width = 180, height = 120, units = "mm", dpi = 600)
+
 }
 
 # ------------------------------------------------------------------------------
@@ -255,11 +282,13 @@ for (ds_name in unique_datasets) {
   # Filter: Common + All Rare
   p_data <- df_final %>%
     filter(dataset == ds_name) %>%
+    # filter(!is.na(abundance_class)) %>%
     mutate(
-      abundance_class = factor(abundance_class, levels = c("Common (>=1%)", "Rare (<1%)")),
+      abundance_class = factor(abundance_class, levels = c("Most prevalent", "Least prevalent")),
       pop_label = reorder(pop_label, -actual_count)
     )
   
+  ds_name_n_cells <- df_final %>% filter(dataset == ds_name) %>% select(dataset_total) %>% unique() %>% pull()
   
   # Skip empty datasets
   if(nrow(p_data) == 0) next
@@ -272,13 +301,13 @@ for (ds_name in unique_datasets) {
       width = 0.7,
       fatten = 0.8
     ) +
-    facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
+    # facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
     
     scale_fill_manual(values = tool_colors) +
     scale_color_manual(values = tool_colors) +
     scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
     
-    labs(title = ds_name) +
+    labs(title = ds_name, subtitle = paste("N cells:", format(ds_name_n_cells, big.mark = ","))) +
     sub_theme
   
   plot_list[[ds_name]] <- p
@@ -310,28 +339,80 @@ final_figure <- cowplot::plot_grid(
 )
 
 ggsave(
-  file.path(output_dir, "Figure2_MultiPanel_A4.png"), 
-  plot = final_figure, 
-  width = 220, 
-  height = 300, 
-  units = "mm", 
-  dpi = 800
+  file.path(output_dir, "Figure2_MultiPanel_A4.png"),
+  plot = final_figure,
+  width = 220,
+  height = 300,
+  units = "mm",
+  dpi = 2000
 )
 
 print(paste("Saved to", file.path(output_dir, "Figure2_MultiPanel_A4.png")))
+
+
+
+# # 1to4
+# final_grid <- wrap_plots(plot_list[1:4], ncol = 1) +
+#   plot_annotation(
+#     title = "",
+#     theme = theme(plot.title = element_text(face="bold", size=12))
+#   )
+# 
+# final_figure <- cowplot::plot_grid(
+#   final_grid,
+#   common_legend,
+#   ncol = 1,
+#   rel_heights = c(1, 0.05)
+# )
+# 
+# ggsave(
+#   file.path(output_dir, "Figure2_MultiPanel_A4_1to4.png"),
+#   plot = final_figure,
+#   width = 220,
+#   height = 300,
+#   units = "mm",
+#   dpi = 2000
+# )
+# 
+# # 5to8
+# final_grid <- wrap_plots(plot_list[5:8], ncol = 1) +
+#   plot_annotation(
+#     title = "",
+#     theme = theme(plot.title = element_text(face="bold", size=12))
+#   )
+# 
+# final_figure <- cowplot::plot_grid(
+#   final_grid,
+#   common_legend,
+#   ncol = 1,
+#   rel_heights = c(1, 0.05)
+# )
+# 
+# ggsave(
+#   file.path(output_dir, "Figure2_MultiPanel_A4_5to8.png"),
+#   plot = final_figure,
+#   width = 220,
+#   height = 300,
+#   units = "mm",
+#   dpi = 2000
+# )
+
 
 # ------------------------------------------------------------------------------
 # 6. REFINED A4 GRID (Top 5 Common & Rare)
 # ------------------------------------------------------------------------------
 # FILTER DATASETS (Must have both Common and Rare)
-valid_datasets <- pop_meta %>%
-  group_by(dataset) %>%
-  summarize(
-    has_common = any(abundance_class == "Common (>=1%)"),
-    has_rare   = any(abundance_class == "Rare (<1%)")
-  ) %>%
-  filter(has_common & has_rare) %>%
-  pull(dataset)
+# valid_datasets <- pop_meta %>%
+#   group_by(dataset) %>%
+#   # summarize(
+#   #   has_common = any(abundance_class == "Most prevalent"),
+#   #   has_rare   = any(abundance_class == "Least prevalent")
+#   # ) %>%
+#   # filter(has_common & has_rare) %>%
+#   pull(dataset)
+
+# valid_datasets <- pop_meta$dataset %>% unique()
+valid_datasets <- c("COVID", "CV", "HBM", "LV", "MBM", "SB")
 
 # SUBPLOT THEME
 gb_theme_subplot <- theme_bw(base_size = 8) + 
@@ -357,15 +438,22 @@ plot_list_refined <- list()
 
 for (ds_name in valid_datasets) {
   
+  # ds_name <- "COVID"
+  
   p_data <- df_final %>%
     filter(dataset == ds_name) %>%
+    filter(!is.na(abundance_class)) %>%
     filter(rank_within_class <= 5) %>% 
     mutate(
-      abundance_class = factor(abundance_class, levels = c("Common (>=1%)", "Rare (<1%)")),
-      pop_label = reorder(pop_label, -pct)
+      abundance_class = factor(abundance_class, levels = c("Most prevalent", "Least prevalent")),
+      pop_label_newline = reorder(pop_label_newline, -pct)
     )
   
-  p <- ggplot(p_data, aes(x = pop_label, y = f1_score, fill = model, color = model)) +
+  ds_name_n_cells <- df_final %>% filter(dataset == ds_name) %>% select(dataset_total) %>% unique() %>% pull()
+  
+  n_pop <- p_data$population_name %>% unique() %>% length()
+ 
+  p <- ggplot(p_data, aes(x = pop_label_newline, y = f1_score, fill = model, color = model)) +
     geom_boxplot(
       outlier.size = 0.1, 
       lwd = 0.25,      
@@ -373,13 +461,16 @@ for (ds_name in valid_datasets) {
       width = 0.65,    
       fatten = 1       
     ) +
-    facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
+    
+    (if (n_pop >= 6) facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") else NULL) +
+    
+    # facet_grid(. ~ abundance_class, scales = "free_x", space = "free_x") +
     
     scale_fill_manual(values = tool_colors) +
     scale_color_manual(values = tool_colors) +
     scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
     
-    labs(title = ds_name) +
+    labs(title = ds_name, subtitle = paste("N cells:", format(ds_name_n_cells, big.mark = ","))) +
     gb_theme_subplot
   
   plot_list_refined[[ds_name]] <- p
@@ -406,7 +497,7 @@ if(length(plot_list_refined) > 0) {
     p_grid,
     common_legend,
     ncol = 1,
-    rel_heights = c(1, 0.05) 
+    rel_heights = c(1.5, 0.05) 
   )
   
   outfile <- file.path(output_dir, "Figure2_A4_Top5_Refined.png")
@@ -414,13 +505,38 @@ if(length(plot_list_refined) > 0) {
   ggsave(
     outfile, 
     plot = final_plot, 
+    # width = 210, 
+    # height = 297, 
     width = 210, 
     height = 297, 
     units = "mm", 
-    dpi = 800
+    dpi = 2000
   )
   
-  print(paste("Saved A4 Figure to:", outfile))
+   print(paste("Saved A4 Figure to:", outfile))
+   
+
+   # p_grid <- plot_grid(plotlist = plot_list_refined[1:4], ncol = 1, align = 'hv', axis = 'tb')
+   # 
+   # final_plot <- plot_grid(
+   #   p_grid,
+   #   common_legend,
+   #   ncol = 1,
+   #   rel_heights = c(1, 0.05) 
+   # )
+   # 
+   # ggsave(
+   #   file.path(output_dir, "Figure2_A4_Top5_Refined_1to4.png"), 
+   #   plot = final_plot, 
+   #   # width = 210, 
+   #   # height = 297, 
+   #   width = 210, 
+   #   height = 297, 
+   #   units = "mm", 
+   #   dpi = 2000
+   # )
+   # 
+   # plot_list_p2 <- plot_list_refined[5:length(plot_list_refined)]
   
 } else {
   print("No valid datasets found.")
