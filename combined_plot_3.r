@@ -35,18 +35,40 @@ option_list <- list(
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
 
+
+f1_macro <-  "Documents/courses/Benchmarking/repos/ob-blob-metrics/out/metric_collectors/metrics_report/f1_macro_by_crossvalidation.tsv" 
+perf_input <- "Documents/courses/Benchmarking/repos/ob-blob-metrics/out/metric_collectors/metrics_report/run_metrics.tsv"
+meta_json <- "Documents/courses/Benchmarking/repos/ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json"
+
+out_fig1 <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/NewNames_Figure3a_Markers_Pops.png"
+out_fig2 <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/NewNames_Cells_TrainSize.png"
+
+
 # ------------------------------------------------------------------------------
 # 3. GLOBAL MAPPINGS
 # ------------------------------------------------------------------------------
+# name_map <- c(
+#   'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'CV',
+#   'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'HT',
+#   'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'COVID',
+#   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
+#   'dataset_name-Samusik_seed-42'                    = 'MBM',
+#   'dataset_name-Transformed_seed-42'                = 'TF',
+#   'dataset_name-flowcyt_seed-42'                    = 'HBM',
+#   'dataset_name-Levine_seed-42'                     = 'LV'
+# )
+
 name_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'CV',
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'HT',
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'COVID',
-  'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
-  'dataset_name-Samusik_seed-42'                    = 'MBM',
-  'dataset_name-Transformed_seed-42'                = 'TF',
-  'dataset_name-flowcyt_seed-42'                    = 'HBM',
-  'dataset_name-Levine_seed-42'                     = 'LV'
+  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
+  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
+  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+  'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
+  'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
+  'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
+  'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
+  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
+  "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 )
 
 populations_map <- c(
@@ -78,7 +100,7 @@ model_map <- c(
 'gatemeclass[V]' = "GateMeClass-V",
 'gatemeclass[E]' = "GateMeClass-E",
 'lda' = "CyTOF LC",
-'knn' = "KNN"
+'knn' = "kNN"
 )
 
 # --- DEFINING BOLD, "SERIOUS" COLORS (Set1 Palette - No Pastels) ---
@@ -89,7 +111,7 @@ tool_colors <- c(
   "CyTOF LC"      = "#FF7F00",  
   "GateMeClass-E" = "#6A3D9A",  
   "GateMeClass-V" = "#CAB2D6",  
-  "KNN"           = "#17BECF"
+  "kNN"           = "#17BECF"
 )
 
 theme_gb_scatter <- theme_bw(base_size = 9) +
@@ -101,9 +123,13 @@ theme_gb_scatter <- theme_bw(base_size = 9) +
 # 4. DATA PROCESSING
 # ------------------------------------------------------------------------------
 message("Loading data...")
-df_f1_raw     <- read_tsv(opt$f1_macro, show_col_types = FALSE)
-df_perf_raw   <- read_tsv(opt$perf_input, show_col_types = FALSE)
-metadata_json <- fromJSON(opt$meta_json)
+# df_f1_raw     <- read_tsv(opt$f1_macro, show_col_types = FALSE)
+# df_perf_raw   <- read_tsv(opt$perf_input, show_col_types = FALSE)
+# metadata_json <- fromJSON(opt$meta_json)
+
+df_f1_raw     <- read_tsv(f1_macro, show_col_types = FALSE)
+df_perf_raw   <- read_tsv(perf_input, show_col_types = FALSE)
+metadata_json <- fromJSON(meta_json)
 
 # Metadata Setup
 cell_stats <- do.call(rbind, lapply(names(metadata_json), function(id) {
@@ -224,8 +250,12 @@ grid2 <- plot_grid(
 final2 <- plot_grid(grid2, legend, ncol = 1, rel_heights = c(1, 0.1))
 
 # Adjusted height to 160mm since these are now 2-row grids instead of 4-row
-ggsave(opt$out_fig1, final1, width = 180, height = 160, units = "mm", dpi = 600)
-ggsave(opt$out_fig2, final2, width = 180, height = 160, units = "mm", dpi = 600)
+# ggsave(opt$out_fig1, final1, width = 180, height = 160, units = "mm", dpi = 600)
+# ggsave(opt$out_fig2, final2, width = 180, height = 160, units = "mm", dpi = 600)
+
+ggsave(out_fig1, final1, width = 180, height = 160, units = "mm", dpi = 600)
+ggsave(out_fig2, final2, width = 180, height = 160, units = "mm", dpi = 600)
+
 
 message(paste("Figure 1 saved to:", opt$out_fig1))
 message(paste("Figure 2 saved to:", opt$out_fig2))

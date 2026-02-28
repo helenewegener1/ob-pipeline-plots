@@ -50,11 +50,12 @@ name_map <- c(
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'SB',
   'dataset_name-Samusik_seed-42'                    = 'MBM',
   'dataset_name-Transformed_seed-42'                = 'TF',
-  'dataset_name-flowcyt_seed-42' = 'HBM',
-  'dataset_name-Levine_seed-42' = 'LV',
-  "dataset_name-panel_CD20_seed-42" = "DCI-CD20",
-  "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
+  'dataset_name-flowcyt_seed-42'                    = 'HBM',
+  'dataset_name-Levine_seed-42'                     = 'LV',
+  "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+  "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 )
+
 
 model_map <- c(
 'cyanno' = "CyAnno",
