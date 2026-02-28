@@ -60,17 +60,30 @@ if (!dir.exists(output_dir)) {
 #   "dataset_name-panel_CD56_seed-42" = "DCI-CD56"
 # )
 
+# name_map <- c(
+#   'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
+#   'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
+#   'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+#   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
+#   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
+#   'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
+#   'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
+#   'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
+#   "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+#   "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+# )
+
 name_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+  'dataset_name-FR-FCM-Z238_seed-42' = 'ChikVirusPBMC_Cyt',
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 'PBMC_flow',
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 'covidPBMC_flow',
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
-  'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
-  'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
-  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
-  "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
-  "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+  'dataset_name-BodenmillerXL_seed-42'                = 'PBMC_Cyt',
+  'dataset_name-FlowCyt_seed-42'                    = 'HumanBoneMarrow_flow',
+  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt'
+  # "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+  # "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 )
 
 model_map <- c(

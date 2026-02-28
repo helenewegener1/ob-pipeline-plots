@@ -56,17 +56,30 @@ output_file <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/NEW_NAMES
 #   "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 # )
 
+# name_map <- c(
+#   'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
+#   'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
+#   'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+#   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
+#   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
+#   'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
+#   'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
+#   'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
+#   "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+#   "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+# )
+
 name_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+  'dataset_name-FR-FCM-Z238_seed-42' = 'ChikVirusPBMC_Cyt',
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 'PBMC_flow',
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 'covidPBMC_flow',
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
-  'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
-  'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
-  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
-  "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
-  "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+  'dataset_name-BodenmillerXL_seed-42'                = 'PBMC_Cyt',
+  'dataset_name-FlowCyt_seed-42'                    = 'HumanBoneMarrow_flow',
+  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt'
+  # "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+  # "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 )
 
 model_map <- c(
@@ -81,56 +94,70 @@ model_map <- c(
 )
 
 tissue_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'PBMCs',
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMCs',
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'PBMCs',
+  'dataset_name-FR-FCM-Z238_seed-42' = 'PBMCs',
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 'PBMCs',
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 'PBMCs',
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'Stimulated Blood',
   'dataset_name-Samusik_seed-42'                    = 'Bone Marrow',
-  'dataset_name-Transformed_seed-42'                = 'PBMCs',
-  'dataset_name-flowcyt_seed-42' = 'Bone Marrow',
-  'dataset_name-Levine_seed-42' = 'Bone Marrow',
-  "dataset_name-panel_CD20_seed-42" = "PBMCs",
-  "dataset_name-panel_CD56_seed-42" = "PBMCs"
+  'dataset_name-BodenmillerXL_seed-42'                = 'PBMCs',
+  'dataset_name-FlowCyt_seed-42' = 'Bone Marrow',
+  'dataset_name-Levine_seed-42' = 'Bone Marrow'
+  # "dataset_name-panel_CD20_seed-42" = "PBMCs",
+  # "dataset_name-panel_CD56_seed-42" = "PBMCs"
 )
 
+
 populations_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 16,
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 6,
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 6,
+  'dataset_name-FR-FCM-Z238_seed-42' = 16,
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 6,
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 6,
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 28,
   'dataset_name-Samusik_seed-42'                    = 15,
-  'dataset_name-Transformed_seed-42'                = 8,
-  'dataset_name-flowcyt_seed-42' = 5,
-  'dataset_name-Levine_seed-42' = 15,
-  "dataset_name-panel_CD20_seed-42" = 8,
-  "dataset_name-panel_CD56_seed-42" = 8
+  'dataset_name-BodenmillerXL_seed-42'                = 8,
+  'dataset_name-FlowCyt_seed-42' = 5,
+  'dataset_name-Levine_seed-42' = 15
+  # "dataset_name-panel_CD20_seed-42" = 8,
+  # "dataset_name-panel_CD56_seed-42" = 8
 )
 
 marker_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 37,
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 24,
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 24,
+  'dataset_name-FR-FCM-Z238_seed-42' = 37,
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 24,
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 24,
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 38,
   'dataset_name-Samusik_seed-42'                    = 39,
-  'dataset_name-Transformed_seed-42'                = 33,
-  'dataset_name-flowcyt_seed-42' = 12,
-  'dataset_name-Levine_seed-42' = 32,
-  "dataset_name-panel_CD20_seed-42" = 8,
-  "dataset_name-panel_CD56_seed-42" = 8
+  'dataset_name-BodenmillerXL_seed-42'                = 33,
+  'dataset_name-FlowCyt_seed-42' = 12,
+  'dataset_name-Levine_seed-42' = 32
+  # "dataset_name-panel_CD20_seed-42" = 8,
+  # "dataset_name-panel_CD56_seed-42" = 8
 )
 
 platform_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = "CyTOF",
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = "FlowCyt",
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = "FlowCyt",
+  'dataset_name-FR-FCM-Z238_seed-42' = "CyTOF",
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = "FCM",
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = "FCM",
   'dataset_name-FR-FCM-Z3YR_seed-42'                = "CyTOF",
   'dataset_name-Samusik_seed-42'                    = "CyTOF",
-  'dataset_name-Transformed_seed-42'                = "CyTOF",
-  'dataset_name-flowcyt_seed-42' = "FlowCyt",
-  'dataset_name-Levine_seed-42' = 'CyTOF',
-  "dataset_name-panel_CD20_seed-42" = "FlowCyt",
-  "dataset_name-panel_CD56_seed-42" = "FlowCyt"
+  'dataset_name-BodenmillerXL_seed-42'                = "CyTOF",
+  'dataset_name-FlowCyt_seed-42' = "FCM",
+  'dataset_name-Levine_seed-42' = "CyTOF"
+  # "dataset_name-panel_CD20_seed-42" = "FlowCyt",
+  # "dataset_name-panel_CD56_seed-42" = "FlowCyt"
 )
+
+# name_map <- c(
+#   'dataset_name-FR-FCM-Z238_seed-42' = 'ChikVirusPBMC_Cyt',
+#   'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 'PBMC_flow',
+#   'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 'covidPBMC_flow',
+#   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
+#   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
+#   'dataset_name-BodenmillerXL_seed-42'                = 'PBMC_Cyt',
+#   'dataset_name-FlowCyt_seed-42'                    = 'HumanBoneMarrow_flow',
+#   'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt'
+#   # "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+#   # "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+# )
 
 df <- read_tsv(input_file, show_col_types = FALSE)
 
@@ -263,7 +290,7 @@ p_bottom <- ggplot(df_no_random, aes(x = display_name, y = f1_macro)) +
 #   axis.text.x.bottom = element_blank()
 # )
 
-wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design) 
+# wrap_plots(A = p_heatmap, B = p_right, C = p_bottom, design = design) 
 
 # p_heatmap <- p_heatmap + theme(plot.margin = margin(2, 2, 2, 2, "pt"))
 # p_right   <- p_right   + theme(plot.margin = margin(2, 2, 2, 2, "pt"))

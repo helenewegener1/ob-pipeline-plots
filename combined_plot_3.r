@@ -58,38 +58,51 @@ out_fig2 <- "Documents/courses/Benchmarking/repos/ob-pipeline-plots/NewNames_Cel
 #   'dataset_name-Levine_seed-42'                     = 'LV'
 # )
 
+# name_map <- c(
+#   'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
+#   'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
+#   'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+#   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
+#   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
+#   'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
+#   'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
+#   'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
+#   "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+#   "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+# )
+
 name_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 'ChikVirusPBMC_Cyt',
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 'PBMC_flow',
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 'covidPBMC_flow',
+  'dataset_name-FR-FCM-Z238_seed-42' = 'ChikVirusPBMC_Cyt',
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 'PBMC_flow',
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 'covidPBMC_flow',
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 'StimBlood_Cyt',
   'dataset_name-Samusik_seed-42'                    = 'MouseBoneMarrow_Cyt',
-  'dataset_name-Transformed_seed-42'                = 'PBMC_Cyt',
-  'dataset_name-flowcyt_seed-42'                    = 'HumanBoneMarrow_flow',
-  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt',
-  "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
-  "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
+  'dataset_name-BodenmillerXL_seed-42'                = 'PBMC_Cyt',
+  'dataset_name-FlowCyt_seed-42'                    = 'HumanBoneMarrow_flow',
+  'dataset_name-Levine_seed-42'                     = 'HumanBoneMarrow_Cyt'
+  # "dataset_name-panel_CD20_seed-42"                 = "DCI-CD20",
+  # "dataset_name-panel_CD56_seed-42"                 = "DCI-CD56"
 )
 
 populations_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 16,
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 6,
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 6,
+  'dataset_name-FR-FCM-Z238_seed-42'  = 16,
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 6,
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 6,
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 28,
   'dataset_name-Samusik_seed-42'                    = 15,
-  'dataset_name-Transformed_seed-42'                = 8,
-  'dataset_name-flowcyt_seed-42'                    = 5,
+  'dataset_name-BodenmillerXL_seed-42'                = 8,
+  'dataset_name-FlowCyt_seed-42'                    = 5,
   'dataset_name-Levine_seed-42'                     = 15
 )
 
 marker_map <- c(
-  'dataset_name-FR-FCM-Z238_infection_final_seed-42' = 37,
-  'dataset_name-FR-FCM-Z2KP_healthy_final_seed-42'  = 24,
-  'dataset_name-FR-FCM-Z2KP_virus_final_seed-42'    = 24,
+  'dataset_name-FR-FCM-Z238_seed-42' = 37,
+  'dataset_name-FR-FCM-Z2KP-healthy_seed-42'  = 24,
+  'dataset_name-FR-FCM-Z2KP-covid_seed-42'    = 24,
   'dataset_name-FR-FCM-Z3YR_seed-42'                = 38,
   'dataset_name-Samusik_seed-42'                    = 39,
-  'dataset_name-Transformed_seed-42' = 33,
-  'dataset_name-flowcyt_seed-42' = 12,
+  'dataset_name-BodenmillerXL_seed-42' = 33,
+  'dataset_name-FlowCyt_seed-42' = 12,
   'dataset_name-Levine_seed-42' = 32
 )
 
@@ -266,4 +279,4 @@ message(paste("Figure 2 saved to:", opt$out_fig2))
 #  --perf_input ../ob-blob-metrics/out/metric_collectors/metrics_report/run_metrics.tsv \
 #  --meta_json ../ob-blob-metrics/out/metric_collectors/metrics_report/dataset_metadata.json \
 #  --out_fig1 ../ob-pipeline-plots/Figure3a_Markers_Pops.png \
-#  --out_fig2 ../ob-pipeline-plots/Figure3b_Cells_TrainSize.png
+#  --out_fig2 ../ob-pipeline-plots/Figure3b_Cells_traSize.png
